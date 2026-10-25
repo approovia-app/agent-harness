@@ -6,18 +6,30 @@ Inspired by and adapted from [capitix/template](https://github.com/capitix/templ
 
 ---
 
+## Two modes — auto-detected by `attach.sh`
+
+| Mode | When | What gets added |
+|---|---|---|
+| **Fresh** | No `AGENTS.md` in target yet | Full harness: AGENTS.md, settings.json, all skills, memory files, verify-agent.sh |
+| **Existing** | `AGENTS.md` already exists | Harness layer only: memory files, agent-run skill, systematic-debugging, code-review, verify-agent.sh. **Never touches** AGENTS.md, settings.json, or existing skills. |
+
+The approovia-app `backend` and `frontend` repos are **existing** repos — they have a generated `AGENTS.md` and a centrally managed `.claude/settings.json`. The harness adds alongside that system, not on top of it.
+
+---
+
 ## What this provides
 
-| File / directory | Purpose |
-|---|---|
-| `AGENTS.md` | Rules every coding agent follows — sources of truth, memory system, work loop, exit conditions |
-| `.claude/settings.json` | Disables Claude Code auto-memory; removes AI attribution from commits |
-| `.claude/skills/systematic-debugging/` | Step-by-step: read before you change anything |
-| `.claude/skills/code-review/` | Independent milestone review gate with severity levels |
-| `.claude/skills/wksm-conventions/` | WKSM naming, TypeScript, money, testing, env-var rules |
-| `docs/agent/*.md` | 8 memory files the agent reads and writes across sessions |
-| `scripts/verify.sh` | The single pass/fail gate — adapt with this repo's commands |
-| `scripts/attach.sh` | Copies harness into a target repo without overwriting existing files |
+| File / directory | Added to | Purpose |
+|---|---|---|
+| `AGENTS.md` | Fresh repos only | Agent rules: sources of truth, memory system, work loop, exit conditions |
+| `.claude/settings.json` | Fresh repos only | Disables cross-session memory; removes AI attribution |
+| `.claude/skills/agent-run/` | All repos | Run loop, phases A/B, exit conditions, session management, issue classification |
+| `.claude/skills/systematic-debugging/` | All repos | Read before you change anything |
+| `.claude/skills/code-review/` | All repos | Independent milestone review gate with severity levels |
+| `.claude/skills/wksm-conventions/` | Fresh repos only | WKSM naming, TypeScript, money, testing, env-var rules |
+| `docs/agent/*.md` | All repos | 8 memory files the agent reads and writes across sessions |
+| `scripts/verify-agent.sh` | All repos | The verify gate — adapt ADAPT: sections for this repo's stack |
+| `scripts/attach.sh` | (harness repo) | Copies harness into a target repo without overwriting existing files |
 
 ---
 
@@ -36,13 +48,39 @@ Inspired by and adapted from [capitix/template](https://github.com/capitix/templ
 git clone https://github.com/approovia-app/agent-harness
 cd agent-harness
 
-# 2. Attach to the target repo
+# 2. Attach to the target repo (mode is auto-detected)
 bash scripts/attach.sh /path/to/target-repo "My Service Name"
 
-# 3. Follow the printed checklist (steps 1–6 printed by the script)
+# 3. Follow the printed checklist
 ```
 
-The script prints a full checklist. Nothing is committed or pushed — you do that in step 5 of the checklist.
+The script prints a checklist specific to the detected mode (fresh or existing). Nothing is committed or pushed — you do that manually.
+
+### For existing approovia-app repos (backend, frontend, etc.)
+
+```bash
+# Clone the repo
+gh repo clone approovia-app/backend
+
+# Attach harness layer
+bash agent-harness/scripts/attach.sh ./backend "WKSM Backend"
+
+# What gets added (nothing existing is touched):
+#   docs/agent/            8 memory files
+#   .claude/skills/agent-run/
+#   .claude/skills/systematic-debugging/
+#   .claude/skills/code-review/
+#   scripts/verify-agent.sh
+```
+
+**settings.json note:** The backend/frontend `.claude/settings.json` is generated from `handbook/standards/claude-settings.yaml` and cannot be modified. To disable cross-session memory for agent runs, add a gitignored local override:
+
+```bash
+echo '{"autoMemoryEnabled": false}' > .claude/settings.local.json
+echo '.claude/settings.local.json' >> .gitignore
+```
+
+Or propose adding `"autoMemoryEnabled": false` to `handbook/standards/claude-settings.yaml` so it propagates everywhere.
 
 ---
 
@@ -144,46 +182,74 @@ git push -u origin agent/run-01
 
 ## Starting a run
 
-Use this prompt to start a coding agent (Claude Code or equivalent):
+### Fresh repos (new service, no existing AGENTS.md)
 
 ```
 You are starting run-01 on the agent/run-01 branch of this repository.
 
 Read AGENTS.md in full before doing anything else.
-Then follow §3.1 (session start steps) exactly:
+Then follow the session start steps in §3.1 exactly:
   1. Confirm you are on branch agent/run-01, then git pull --rebase.
   2. Check the active session marker in docs/agent/progress.md.
   3. Check whether the previous session was interrupted (docs/agent/sessions.md).
-  4. Continue from the step recorded in docs/agent/progress.md.
+  4. Continue from the step in docs/agent/progress.md.
 
-The verify gate is scripts/verify.sh.
+The verify gate is scripts/verify-agent.sh.
 The milestone criteria are in docs/milestones.md.
 The design is in docs/design.md.
-
 Current phase: A (foundation and acceptance tests).
 ```
 
-Save this prompt. Use the same text to resume after an interruption — the agent will read its own memory files and pick up where it left off.
+### Existing repos (backend, frontend — already have AGENTS.md)
+
+```
+You are starting run-01 on the agent/run-01 branch of this repository.
+
+1. Read AGENTS.md — this repo's operational rules. They all apply.
+2. Load .claude/skills/agent-run/SKILL.md — this adds the run management
+   layer (phases, memory system, work loop, exit conditions).
+3. Follow "Session start" in the agent-run skill exactly before any other work.
+
+The verify gate is scripts/verify-agent.sh.
+The milestone criteria are in docs/milestones.md (or open GitHub issues if
+docs/milestones.md does not exist yet).
+Current phase: A.
+```
 
 ---
 
 ## Resuming an interrupted run
 
-The agent's memory files in `docs/agent/` hold everything needed to resume.
+### Fresh repos
 
 ```
-Resume the run on branch agent/run-01.
+Resume run-01 on branch agent/run-01.
 
 Read AGENTS.md in full.
 Then follow §3.1 (session start steps):
   1. git pull --rebase
-  2. Check the active session marker in docs/agent/progress.md
+  2. Check active session marker in docs/agent/progress.md
   3. Check sessions.md for the previous session outcome
-  4. Handle any uncommitted changes or wip: commits
+  4. Handle uncommitted changes or wip: commits
   5. Continue from the step in progress.md
 ```
 
-If the previous session left a `wip:` commit, the agent will continue on top of it until verify is green before committing a clean commit.
+### Existing repos
+
+```
+Resume run-01 on branch agent/run-01.
+
+1. Read AGENTS.md.
+2. Load .claude/skills/agent-run/SKILL.md.
+3. Follow "Session start" in the agent-run skill:
+   1. git pull --rebase
+   2. Check active session marker in docs/agent/progress.md
+   3. Check sessions.md for interruption
+   4. Handle uncommitted changes or wip: commits
+   5. Continue from the step in progress.md
+```
+
+If the previous session left a `wip:` commit, the agent continues on top of it until verify is green.
 
 ---
 
