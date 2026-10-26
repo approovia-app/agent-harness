@@ -37,20 +37,21 @@ State your diagnosis explicitly under "Current focus" in `progress.md`. If the d
 
 ### 5. Verify the fix
 
-Run the failing check again in isolation before running the full `scripts/verify.sh`. A fast feedback loop catches regressions immediately.
+Run the failing check again in isolation before running the full `scripts/verify-agent.sh`. A fast feedback loop catches regressions immediately.
 
 ### 6. If the same check fails three iterations in a row
 
-Stop. Do not try a fourth variation on the same approach.
+Pause and write things down before trying again.
 
 1. Write the failure pattern verbatim under "Current focus" in `progress.md`.
 2. Write your next idea there too.
 3. Check `lessons.md` — has this pattern been seen before?
-4. If you have exhausted 2 different approaches and the check still fails, this is STUCK (§6 of AGENTS.md).
+4. After 6 consecutive failures on the same check, return to the last green commit (restore and commit, never reset) and try a genuinely different approach.
+5. If you have exhausted 2 different approaches and the check still fails, this is STUCK.
 
 ### 7. Record confirmed lessons
 
-Once a non-obvious failure is fixed and `scripts/verify.sh` is green, record the pattern and fix in `lessons.md`:
+Once a non-obvious failure is fixed and `scripts/verify-agent.sh` is green, record the pattern and fix in `lessons.md`:
 
 ```text
 ### L-<nnn>: <short title>

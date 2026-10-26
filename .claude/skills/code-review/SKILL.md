@@ -46,7 +46,7 @@ For each file in scope:
    - Are there edge cases the tests don't cover?
    - Does it introduce a security or data-integrity risk?
    - Does it break an API contract, event schema, or database invariant?
-   - Does it follow the conventions in `codemap.md` and the `wksm-conventions` skill?
+   - Does it follow the conventions in `codemap.md`, the repo's `AGENTS.md`, and the `wksm-conventions` skill if this repo has it?
 
 ### 4. Record findings in `reviews.md`
 
@@ -70,7 +70,7 @@ Scope: <list of files or "see diff">
 The implementing agent (not the reviewer) fixes each finding:
 
 1. Read the finding carefully. Fix exactly what it says.
-2. Run `scripts/verify.sh --through <current milestone>` after each fix.
+2. Run `scripts/verify-agent.sh --through <current milestone>` after each fix.
 3. Update the finding's status in `reviews.md` to `fixed in <short commit hash>`.
 4. If you disagree with a finding, raise it in `questions.md` rather than silently ignoring it.
 

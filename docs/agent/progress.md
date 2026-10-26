@@ -11,7 +11,9 @@
 
 _none_
 
-<!-- Fill in at session start: Tool / Host / Started <YYYY-MM-DD HH:MM UTC> -->
+<!-- Fill in at session start: Tool / Host / Started <YYYY-MM-DD HH:MM UTC> / Last checkpoint <YYYY-MM-DD HH:MM UTC> -->
+<!-- Refresh "Last checkpoint" on every checkpoint commit; a marker older than 2 hours is stale -->
+
 <!-- Clear at session end -->
 
 ## Next step

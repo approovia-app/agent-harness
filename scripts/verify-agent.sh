@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scripts/verify.sh — agent verify gate
+# scripts/verify-agent.sh — agent verify gate
 #
 # Usage:
-#   bash scripts/verify.sh                   # run all checks
-#   bash scripts/verify.sh --through M2      # gate on M0–M2; later milestones reported but non-gating
-#   bash scripts/verify.sh --full            # gate + mutation/coverage (if configured)
+#   bash scripts/verify-agent.sh                   # run all checks
+#   bash scripts/verify-agent.sh --through M2      # gate on M0–M2; later milestones reported but non-gating
+#   bash scripts/verify-agent.sh --full            # gate + mutation/coverage (if configured)
 #
 # Writes: verify-summary.json
 #
@@ -13,7 +13,7 @@
 # ── HOW TO ADAPT THIS SCRIPT ───────────────────────────────────────────────
 # 1. Fill in each "ADAPT:" section with this repo's actual commands.
 # 2. Add milestone acceptance-test commands under the milestone map below.
-# 3. Run `bash scripts/verify.sh` to confirm it works before starting a run.
+# 3. Run `bash scripts/verify-agent.sh` to confirm it works before starting a run.
 # 4. Record the working commands in docs/agent/runbook.md.
 # ───────────────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,13 @@ FULL=false
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --through) THROUGH_MILESTONE="$2"; shift 2 ;;
+        --through)
+            # Accept "M2", "m2" or "2"; reject anything else rather than gating wrongly.
+            if [[ "${2:-}" =~ ^[Mm]?([0-9]+)$ ]]; then
+                THROUGH_MILESTONE="M${BASH_REMATCH[1]}"; shift 2
+            else
+                echo "Invalid --through value: '${2:-}' (expected e.g. M2)"; exit 1
+            fi ;;
         --full)    FULL=true; shift ;;
         *)         echo "Unknown argument: $1"; exit 1 ;;
     esac
@@ -35,12 +41,19 @@ done
 # ── Step tracking ───────────────────────────────────────────────────────────
 PASS=true
 STEP_JSON=""
+MILESTONES_REGISTERED=0
+
+# First 3 lines of $1 as a JSON string body: control chars become spaces,
+# backslashes and quotes are escaped (in that order).
+json_escape() {
+    printf '%s' "$1" | head -3 | tr '\000-\037' ' ' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
 
 step() {
     local name="$1"
     local status="$2"   # pass | fail | skip
     local detail="${3:-}"
-    local entry="{\"name\":\"$name\",\"status\":\"$status\",\"detail\":\"$(echo "$detail" | head -3 | tr '\n' ' ' | sed 's/"/\\"/g')\"}"
+    local entry="{\"name\":\"$(json_escape "$name")\",\"status\":\"$status\",\"detail\":\"$(json_escape "$detail")\"}"
     STEP_JSON="${STEP_JSON:+$STEP_JSON,}$entry"
     if [[ "$status" == "fail" ]]; then
         PASS=false
@@ -102,6 +115,7 @@ run_step "unit-tests" npm test --silent
 milestone_number() {
     local n="$1"; shift
     local gate=true
+    MILESTONES_REGISTERED=$((MILESTONES_REGISTERED + 1))
     if [[ -n "$THROUGH_MILESTONE" ]]; then
         local through_n="${THROUGH_MILESTONE#M}"
         [[ "$n" -gt "$through_n" ]] && gate=false
@@ -126,11 +140,16 @@ echo "— acceptance tests"
 
 # ── 6. Full mode: coverage / mutation ───────────────────────────────────────
 if $FULL; then
+    # --full is the SUCCESS gate; it must never pass without acceptance tests.
+    if [[ "$MILESTONES_REGISTERED" -eq 0 ]]; then
+        step "acceptance-registered" "fail" "no milestone_number lines in scripts/verify-agent.sh"
+    fi
+
     echo "— coverage"
     # ADAPT: replace with this repo's coverage command.
     # Example:
     #   run_step "coverage" npm run test:coverage
-    step "coverage" "skip" "not configured — fill in scripts/verify.sh"
+    step "coverage" "skip" "not configured — fill in scripts/verify-agent.sh"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
