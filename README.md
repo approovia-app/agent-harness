@@ -11,7 +11,7 @@ Inspired by and adapted from [capitix/template](https://github.com/capitix/templ
 | Mode | When | What gets added |
 |---|---|---|
 | **Fresh** | No `AGENTS.md` in target yet | Full harness: AGENTS.md, settings.json, all skills, memory files, verify-agent.sh |
-| **Existing** | `AGENTS.md` already exists | Harness layer only: memory files, agent-run skill, systematic-debugging, code-review, verify-agent.sh. **Never touches** AGENTS.md, settings.json, or existing skills. |
+| **Existing** | `AGENTS.md` already exists | Harness layer only: memory files, agent-run skill, systematic-debugging, code-review, verify-agent.sh. **Never touches** AGENTS.md, settings.json, or existing skills. (Both modes append `verify-summary.json` to `.gitignore` if missing.) |
 
 The approovia-app `backend` and `frontend` repos are **existing** repos — they have a generated `AGENTS.md` and a centrally managed `.claude/settings.json`. The harness adds alongside that system, not on top of it.
 
@@ -126,7 +126,7 @@ Rules:
 - Every criterion must be testable without reading internal code.
 - Every criterion must appear in at least one acceptance test name (e.g. `m1_ac01_create_workgroup`).
 
-### 3. Adapt `scripts/verify.sh`
+### 3. Adapt `scripts/verify-agent.sh`
 
 Fill in the `ADAPT:` sections with this repo's actual commands:
 
@@ -148,9 +148,15 @@ milestone_number 1 npm run test:acceptance -- --grep "m1_"
 milestone_number 2 npm run test:acceptance -- --grep "m2_"
 ```
 
-Run `bash scripts/verify.sh` yourself first. It must exit 0 before you hand the repo to an agent.
+Run `bash scripts/verify-agent.sh` yourself first. It must exit 0 before you hand the repo to an agent.
 
-### 4. Update `docs/agent/decisions.md`
+Acceptance-test lines can be left for the agent: in phase A it registers one `milestone_number` line per milestone, and `--full` fails until at least one is registered, so a run can never succeed without acceptance tests.
+
+### 4. Label the issues the agent may work on
+
+The agent only reads open issues labelled `agent-ready`. Anyone can file an issue, so applying the label is how a maintainer approves one for the run. Create the label once per repo: `gh label create agent-ready`.
+
+### 5. Update `docs/agent/decisions.md`
 
 Fill in D-003 (decimal library) and add any other baseline decisions:
 - Which HTTP framework (if applicable)
@@ -160,7 +166,7 @@ Fill in D-003 (decimal library) and add any other baseline decisions:
 
 Mark these as `Made by: maintainer` — they are binding.
 
-### 5. Update `docs/agent/runbook.md`
+### 6. Update `docs/agent/runbook.md`
 
 Add the working commands for this specific repo:
 - Exact `npm install` / setup steps
@@ -168,12 +174,12 @@ Add the working commands for this specific repo:
 - How to run individual test files
 - Known environment gotchas
 
-### 6. Create the run branch and push
+### 7. Create the run branch and push
 
 ```bash
 cd /path/to/target-repo
 git checkout -b agent/run-01
-git add docs/ .claude/ AGENTS.md scripts/verify.sh
+git add docs/ .claude/ AGENTS.md scripts/verify-agent.sh .gitignore
 git commit -m "harness: attach agent harness for run-01"
 git push -u origin agent/run-01
 ```
@@ -272,7 +278,7 @@ At the end of each milestone, the agent opens a draft PR and records a self-revi
 
 1. Pull the branch and read `docs/agent/reviews.md`.
 2. Read the milestone's acceptance criteria in `docs/milestones.md`.
-3. Run `bash scripts/verify.sh --through M<n>` yourself to confirm green.
+3. Run `bash scripts/verify-agent.sh --through M<n>` yourself to confirm green.
 4. Add any findings you spot (using the format in `reviews.md`). Mark them with `Made by: maintainer`.
 5. Commit your findings to the run branch and push.
 6. Resume the agent to fix Critical/Major findings.
@@ -349,5 +355,5 @@ Read `docs/agent/progress.md` — under "Current focus" you will see what it is 
 **The agent is on the wrong branch.**
 It will stop and report BLOCKED. Create the correct branch (`agent/run-<nn>`) from the last green commit, update `progress.md` to name it, commit, and push. Then resume.
 
-**verify.sh is not finding the right commands.**
-Edit `scripts/verify.sh` — fill in the `ADAPT:` sections. Run it yourself first. Commit and push on the run branch.
+**verify-agent.sh is not finding the right commands.**
+Edit `scripts/verify-agent.sh` — fill in the `ADAPT:` sections. Run it yourself first. Commit and push on the run branch.

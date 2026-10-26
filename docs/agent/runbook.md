@@ -20,7 +20,7 @@ cp .env.example .env
 
 | Task | Command |
 |---|---|
-| Run verify gate | `bash scripts/verify.sh` |
+| Run verify gate | `bash scripts/verify-agent.sh` |
 | Run tests only | `npm test` |
 | Run type check | `npm run typecheck` |
 | Run lint | `npm run lint` |

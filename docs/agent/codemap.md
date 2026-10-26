@@ -23,7 +23,7 @@ tests/
   acceptance/   — black-box HTTP + DB tests (frozen in phase B)
   unit/         — pure function tests
 scripts/
-  verify.sh     — the agent verify gate
+  verify-agent.sh — the agent verify gate
 docs/
   design.md     — requirements (read-only)
   milestones.md — acceptance criteria (read-only)

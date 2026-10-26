@@ -11,7 +11,8 @@
 #              Never overwrites AGENTS.md, .claude/settings.json, or existing skills.
 #
 # What it never does:
-#   - Overwrite any existing file in the target repo.
+#   - Overwrite any existing file in the target repo. (It only appends
+#     `verify-summary.json` to .gitignore if that line is missing.)
 #   - Commit or push anything.
 
 set -euo pipefail
@@ -87,15 +88,23 @@ copy_file "$HARNESS_DIR/.claude/skills/code-review/SKILL.md" \
 
 # ── Always: verify-agent.sh (named to avoid conflict with existing verify.sh) ─
 VERIFY_DST="$TARGET/scripts/verify-agent.sh"
-if [[ -f "$TARGET/scripts/verify.sh" ]]; then
-    # Repo already has a verify.sh — use verify-agent.sh to avoid collision
-    echo "— scripts/verify-agent.sh (verify.sh exists; using separate name)"
-    copy_file "$HARNESS_DIR/scripts/verify.sh" "$VERIFY_DST"
-else
-    echo "— scripts/verify-agent.sh"
-    copy_file "$HARNESS_DIR/scripts/verify.sh" "$VERIFY_DST"
-fi
+echo "— scripts/verify-agent.sh"
+copy_file "$HARNESS_DIR/scripts/verify-agent.sh" "$VERIFY_DST"
 chmod +x "$VERIFY_DST" 2>/dev/null || true
+
+# ── Always: keep verify output out of commits ────────────────────────────────
+# The only change ever made to an existing file: one line appended, once.
+echo "— .gitignore"
+if grep -qxF 'verify-summary.json' "$TARGET/.gitignore" 2>/dev/null; then
+    echo "  skip  (present) verify-summary.json in .gitignore"
+else
+    # Don't glue onto a last line that lacks a trailing newline
+    if [[ -s "$TARGET/.gitignore" && -n "$(tail -c1 "$TARGET/.gitignore")" ]]; then
+        echo >> "$TARGET/.gitignore"
+    fi
+    echo 'verify-summary.json' >> "$TARGET/.gitignore"
+    echo "  add   verify-summary.json to .gitignore"
+fi
 
 # ── Fresh repos only: AGENTS.md + settings.json + wksm-conventions ───────────
 if ! $EXISTING_REPO; then
@@ -105,7 +114,9 @@ if ! $EXISTING_REPO; then
         echo "  skip  (exists) AGENTS.md"
         ((skipped++)) || true
     else
-        sed "s/{{Repo Name}}/$REPO_NAME/g" "$HARNESS_DIR/AGENTS.md" > "$dst"
+        # Escape sed replacement metacharacters so names like "A/B & C" survive
+        repo_name_esc="$(printf '%s' "$REPO_NAME" | sed 's/[\/&\\]/\\&/g')"
+        sed "s/{{Repo Name}}/$repo_name_esc/g" "$HARNESS_DIR/AGENTS.md" > "$dst"
         echo "  add   AGENTS.md"
         ((added++)) || true
     fi
@@ -168,7 +179,7 @@ NEXT STEPS:
     git add docs/agent/ .claude/skills/agent-run/ \
             .claude/skills/systematic-debugging/ \
             .claude/skills/code-review/ \
-            scripts/verify-agent.sh
+            scripts/verify-agent.sh .gitignore
     git commit -m "harness: add agent run layer"
     git push -u origin agent/run-01
 
@@ -196,7 +207,7 @@ cat <<'CHECKLIST'
 
  5. Create the run branch:
     git checkout -b agent/run-01
-    git add docs/ .claude/ AGENTS.md scripts/verify-agent.sh
+    git add docs/ .claude/ AGENTS.md scripts/verify-agent.sh .gitignore
     git commit -m "harness: attach agent harness"
     git push -u origin agent/run-01
 
